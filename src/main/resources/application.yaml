@@ -1,3 +1,19 @@
+server:
+  port: 8082
+
 spring:
   application:
     name: orderservice
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/test_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:secret}
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
