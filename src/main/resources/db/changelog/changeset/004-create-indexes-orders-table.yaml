@@ -1,0 +1,25 @@
+databaseChangeLog:
+  - changeSet:
+      id: create-indexes-orders-table
+      author: Pazl2
+      changes:
+        - createIndex:
+            indexName: idx_orders_user_id
+            tableName: orders
+            columns:
+              - column:
+                  name: user_id
+
+        - createIndex:
+            indexName: idx_orders_status
+            tableName: orders
+            columns:
+              - column:
+                  name: status
+
+        - createIndex:
+            indexName: idx_orders_deleted
+            tableName: orders
+            columns:
+              - column:
+                  name: deleted
