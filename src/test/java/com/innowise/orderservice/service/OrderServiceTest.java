@@ -1,7 +1,12 @@
 package com.innowise.orderservice.service;
 
 import com.innowise.orderservice.client.UserClient;
-import com.innowise.orderservice.dto.*;
+import com.innowise.orderservice.dto.OrderCreateRequest;
+import com.innowise.orderservice.dto.OrderItemRequest;
+import com.innowise.orderservice.dto.OrderResponse;
+import com.innowise.orderservice.dto.OrderUpdateRequest;
+import com.innowise.orderservice.dto.OrderWithUserResponse;
+import com.innowise.orderservice.dto.UserDto;
 import com.innowise.orderservice.entity.Item;
 import com.innowise.orderservice.entity.Order;
 import com.innowise.orderservice.entity.OrderStatus;
@@ -26,10 +31,16 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
@@ -103,7 +114,6 @@ class OrderServiceTest {
         ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
         verify(orderRepository).save(orderCaptor.capture());
         Order toSave = orderCaptor.getValue();
-        // 15.00 * 2 + 5.50 * 1 = 35.50
         assertEquals(0, new BigDecimal("35.50").compareTo(toSave.getTotalPrice()));
         assertEquals(1L, toSave.getUserId());
         assertEquals(2, toSave.getOrderItems().size());
@@ -171,7 +181,7 @@ class OrderServiceTest {
         doReturn(response).when(orderMapper).toDto(order);
 
         Page<OrderWithUserResponse> result = orderService.getOrders(
-                LocalDateTime.now().minusDays(1), LocalDateTime.now(),
+                LocalDateTime.of(2024, 1, 1, 0, 0), LocalDateTime.of(2024, 1, 2, 0, 0),
                 List.of(OrderStatus.CREATED), 0, 10);
 
         assertEquals(1, result.getTotalElements());
