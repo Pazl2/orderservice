@@ -28,7 +28,7 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.time.Month;import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -181,7 +181,7 @@ class OrderServiceTest {
         doReturn(response).when(orderMapper).toDto(order);
 
         Page<OrderWithUserResponse> result = orderService.getOrders(
-                LocalDateTime.of(2024, 1, 1, 0, 0), LocalDateTime.of(2024, 1, 2, 0, 0),
+                LocalDateTime.of(2024, Month.APRIL, 1, 0, 0), LocalDateTime.of(2024, Month.APRIL, 2, 0, 0),
                 List.of(OrderStatus.CREATED), 0, 10);
 
         assertEquals(1, result.getTotalElements());
