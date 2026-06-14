@@ -68,4 +68,9 @@ public class Order {
         this.orderItems.add(orderItem);
         orderItem.setOrder(this);
     }
+
+    public void clearOrderItems() {
+        this.orderItems.forEach(oi -> oi.setOrder(null));
+        this.orderItems.clear();
+    }
 }
