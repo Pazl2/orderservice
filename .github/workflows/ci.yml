@@ -44,7 +44,6 @@ jobs:
   docker-image:
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -62,5 +61,5 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
+          push: ${{ github.event_name == 'push' }}
           tags: ${{ secrets.DOCKER_USERNAME }}/orderservice:latest
