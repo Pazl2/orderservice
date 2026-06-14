@@ -15,6 +15,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.SQLRestriction;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -34,6 +35,7 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
+@SQLRestriction("deleted = false")
 public class Order {
 
     @Id
@@ -61,7 +63,7 @@ public class Order {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems = new ArrayList<>();
 
     public void addOrderItem(OrderItem orderItem) {
@@ -70,7 +72,6 @@ public class Order {
     }
 
     public void clearOrderItems() {
-        this.orderItems.forEach(oi -> oi.setOrder(null));
         this.orderItems.clear();
     }
 }
