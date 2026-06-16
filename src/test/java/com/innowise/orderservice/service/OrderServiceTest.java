@@ -30,6 +30,7 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Optional;
 
@@ -179,7 +180,7 @@ class OrderServiceTest {
         doReturn(sampleUser()).when(userClient).getUserById(1L);
 
         Page<OrderWithUserResponse> result = orderService.getOrders(
-                LocalDateTime.of(2024, 1, 1, 0, 0), LocalDateTime.of(2024, 1, 2, 0, 0),
+                LocalDateTime.of(2024, Month.APRIL, 1, 0, 0), LocalDateTime.of(2024, Month.APRIL, 2, 0, 0),
                 List.of(OrderStatus.CREATED), 1L, 0, 10);
 
         assertEquals(2, result.getTotalElements());
