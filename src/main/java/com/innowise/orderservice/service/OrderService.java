@@ -65,12 +65,14 @@ public class OrderService {
         return wrap(saved, user);
     }
 
+    @Transactional(readOnly = true)
     public OrderWithUserResponse getOrderById(Long id) {
         Order order = getOrderEntityById(id);
         UserDto user = userClient.getUserById(order.getUserId());
         return wrap(order, user);
     }
 
+    @Transactional(readOnly = true)
     public Page<OrderWithUserResponse> getOrders(LocalDateTime createdFrom,
                                                  LocalDateTime createdTo,
                                                  List<OrderStatus> statuses,
