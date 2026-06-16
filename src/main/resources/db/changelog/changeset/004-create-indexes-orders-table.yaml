@@ -23,3 +23,10 @@ databaseChangeLog:
             columns:
               - column:
                   name: deleted
+
+        - createIndex:
+            indexName: idx_orders_created_at
+            tableName: orders
+            columns:
+              - column:
+                  name: created_at

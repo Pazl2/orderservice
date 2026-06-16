@@ -38,4 +38,13 @@ public final class OrderSpecification {
             return root.get("status").in(statuses);
         };
     }
+
+    public static Specification<Order> hasUserId(Long userId) {
+        return (root, query, cb) -> {
+            if (userId == null) {
+                return null;
+            }
+            return cb.equal(root.get("userId"), userId);
+        };
+    }
 }

@@ -6,9 +6,9 @@ import com.innowise.orderservice.exception.UserServiceUnavailableException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class UserClient {
@@ -27,6 +27,10 @@ public class UserClient {
         return userServiceRestClient.get()
                 .uri("/users/email/{email}", email)
                 .retrieve()
+                .onStatus(status -> status.value() == HttpStatus.NOT_FOUND.value(),
+                        (request, response) -> {
+                            throw new ResourceNotFoundException("User not found by email " + email);
+                        })
                 .body(UserDto.class);
     }
 
@@ -35,6 +39,10 @@ public class UserClient {
         return userServiceRestClient.get()
                 .uri("/users/{id}", userId)
                 .retrieve()
+                .onStatus(status -> status.value() == HttpStatus.NOT_FOUND.value(),
+                        (request, response) -> {
+                            throw new ResourceNotFoundException("User not found by id " + userId);
+                        })
                 .body(UserDto.class);
     }
 
@@ -49,9 +57,8 @@ public class UserClient {
     }
 
     private UserDto handleFallback(String identifier, Throwable ex) {
-        if (ex instanceof RestClientResponseException rcre
-                && rcre.getStatusCode().value() == 404) {
-            throw new ResourceNotFoundException("User not found by " + identifier);
+        if (ex instanceof ResourceNotFoundException resourceNotFound) {
+            throw resourceNotFound;
         }
         log.warn("User service call failed for {}: {}", identifier, ex.getMessage());
         throw new UserServiceUnavailableException(

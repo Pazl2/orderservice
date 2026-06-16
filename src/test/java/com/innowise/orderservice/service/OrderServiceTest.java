@@ -1,9 +1,10 @@
 package com.innowise.orderservice.service;
 
 import com.innowise.orderservice.client.UserClient;
+import com.innowise.orderservice.dao.ItemDao;
+import com.innowise.orderservice.dao.OrderDao;
 import com.innowise.orderservice.dto.OrderCreateRequest;
 import com.innowise.orderservice.dto.OrderItemRequest;
-import com.innowise.orderservice.dto.OrderResponse;
 import com.innowise.orderservice.dto.OrderUpdateRequest;
 import com.innowise.orderservice.dto.OrderWithUserResponse;
 import com.innowise.orderservice.dto.UserDto;
@@ -11,13 +12,14 @@ import com.innowise.orderservice.entity.Item;
 import com.innowise.orderservice.entity.Order;
 import com.innowise.orderservice.entity.OrderStatus;
 import com.innowise.orderservice.exception.ResourceNotFoundException;
+import com.innowise.orderservice.mapper.OrderItemMapper;
+import com.innowise.orderservice.mapper.OrderItemMapperImpl;
 import com.innowise.orderservice.mapper.OrderMapper;
-import com.innowise.orderservice.repository.ItemRepository;
-import com.innowise.orderservice.repository.OrderRepository;
+import com.innowise.orderservice.mapper.OrderMapperImpl;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -28,7 +30,7 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.Month;import java.util.List;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,19 +48,23 @@ import static org.mockito.Mockito.verify;
 class OrderServiceTest {
 
     @Mock
-    private OrderRepository orderRepository;
+    private OrderDao orderDao;
 
     @Mock
-    private ItemRepository itemRepository;
-
-    @Mock
-    private OrderMapper orderMapper;
+    private ItemDao itemDao;
 
     @Mock
     private UserClient userClient;
 
-    @InjectMocks
+    private final OrderItemMapper orderItemMapper = new OrderItemMapperImpl();
+    private final OrderMapper orderMapper = new OrderMapperImpl(orderItemMapper);
+
     private OrderService orderService;
+
+    @BeforeEach
+    void setUp() {
+        orderService = new OrderService(orderDao, itemDao, orderMapper, orderItemMapper, userClient);
+    }
 
     private UserDto sampleUser() {
         UserDto user = new UserDto();
@@ -83,6 +89,14 @@ class OrderServiceTest {
         return req;
     }
 
+    private Order orderWithUser(Long id, Long userId) {
+        Order order = new Order();
+        order.setId(id);
+        order.setUserId(userId);
+        order.setStatus(OrderStatus.CREATED);
+        return order;
+    }
+
     @Test
     void createOrder_ShouldResolveUserByEmail_AndComputeTotalPrice() {
         OrderCreateRequest request = new OrderCreateRequest();
@@ -92,18 +106,11 @@ class OrderServiceTest {
 
         UserDto user = sampleUser();
         doReturn(user).when(userClient).getUserByEmail("ivan@example.com");
-        doReturn(Optional.of(sampleItem(10L, "Book", "15.00"))).when(itemRepository).findById(10L);
-        doReturn(Optional.of(sampleItem(20L, "Pen", "5.50"))).when(itemRepository).findById(20L);
+        doReturn(Optional.of(sampleItem(10L, "Book", "15.00"))).when(itemDao).findById(10L);
+        doReturn(Optional.of(sampleItem(20L, "Pen", "5.50"))).when(itemDao).findById(20L);
 
-        Order savedOrder = new Order();
-        savedOrder.setId(100L);
-        savedOrder.setUserId(1L);
-        savedOrder.setStatus(OrderStatus.CREATED);
-        doReturn(savedOrder).when(orderRepository).save(any(Order.class));
-
-        OrderResponse mappedResponse = new OrderResponse();
-        mappedResponse.setId(100L);
-        doReturn(mappedResponse).when(orderMapper).toDto(savedOrder);
+        Order savedOrder = orderWithUser(100L, 1L);
+        doReturn(savedOrder).when(orderDao).save(any(Order.class));
 
         OrderWithUserResponse result = orderService.createOrder(request);
 
@@ -112,10 +119,11 @@ class OrderServiceTest {
         assertEquals("ivan@example.com", result.getUser().getEmail());
 
         ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
-        verify(orderRepository).save(orderCaptor.capture());
+        verify(orderDao).save(orderCaptor.capture());
         Order toSave = orderCaptor.getValue();
         assertEquals(0, new BigDecimal("35.50").compareTo(toSave.getTotalPrice()));
         assertEquals(1L, toSave.getUserId());
+        assertEquals(OrderStatus.CREATED, toSave.getStatus());
         assertEquals(2, toSave.getOrderItems().size());
 
         verify(userClient, times(1)).getUserByEmail("ivan@example.com");
@@ -129,25 +137,19 @@ class OrderServiceTest {
         request.setItems(List.of(itemRequest(99L, 1)));
 
         doReturn(sampleUser()).when(userClient).getUserByEmail("ivan@example.com");
-        doReturn(Optional.empty()).when(itemRepository).findById(99L);
+        doReturn(Optional.empty()).when(itemDao).findById(99L);
 
         ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
                 () -> orderService.createOrder(request));
         assertTrue(ex.getMessage().contains("99"));
-        verify(orderRepository, never()).save(any());
+        verify(orderDao, never()).save(any());
     }
 
     @Test
     void getOrderById_ShouldReturnOrderWithUser_WhenExists() {
-        Order order = new Order();
-        order.setId(5L);
-        order.setUserId(1L);
-        doReturn(Optional.of(order)).when(orderRepository).findById(5L);
+        Order order = orderWithUser(5L, 1L);
+        doReturn(Optional.of(order)).when(orderDao).findById(5L);
         doReturn(sampleUser()).when(userClient).getUserById(1L);
-
-        OrderResponse response = new OrderResponse();
-        response.setId(5L);
-        doReturn(response).when(orderMapper).toDto(order);
 
         OrderWithUserResponse result = orderService.getOrderById(5L);
 
@@ -159,7 +161,7 @@ class OrderServiceTest {
 
     @Test
     void getOrderById_ShouldThrow_WhenOrderNotFound() {
-        doReturn(Optional.empty()).when(orderRepository).findById(404L);
+        doReturn(Optional.empty()).when(orderDao).findById(404L);
 
         ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
                 () -> orderService.getOrderById(404L));
@@ -168,64 +170,37 @@ class OrderServiceTest {
     }
 
     @Test
-    void getOrders_ShouldReturnPageOfOrdersWithUser() {
-        Order order = new Order();
-        order.setId(7L);
-        order.setUserId(1L);
-        Page<Order> page = new PageImpl<>(List.of(order), PageRequest.of(0, 10), 1);
+    void getOrders_ShouldReturnPage_AndFetchEachUserOnce() {
+        Order order1 = orderWithUser(7L, 1L);
+        Order order2 = orderWithUser(8L, 1L);
+        Page<Order> page = new PageImpl<>(List.of(order1, order2), PageRequest.of(0, 10), 2);
 
-        doReturn(page).when(orderRepository).findAll(any(Specification.class), any(Pageable.class));
+        doReturn(page).when(orderDao).findAll(any(Specification.class), any(Pageable.class));
         doReturn(sampleUser()).when(userClient).getUserById(1L);
-        OrderResponse response = new OrderResponse();
-        response.setId(7L);
-        doReturn(response).when(orderMapper).toDto(order);
 
         Page<OrderWithUserResponse> result = orderService.getOrders(
-                LocalDateTime.of(2024, Month.APRIL, 1, 0, 0), LocalDateTime.of(2024, Month.APRIL, 2, 0, 0),
-                List.of(OrderStatus.CREATED), 0, 10);
+                LocalDateTime.of(2024, 1, 1, 0, 0), LocalDateTime.of(2024, 1, 2, 0, 0),
+                List.of(OrderStatus.CREATED), 1L, 0, 10);
 
-        assertEquals(1, result.getTotalElements());
+        assertEquals(2, result.getTotalElements());
         assertEquals(7L, result.getContent().get(0).getOrder().getId());
         assertEquals(1L, result.getContent().get(0).getUser().getId());
-        verify(orderRepository, times(1)).findAll(any(Specification.class), any(Pageable.class));
-    }
-
-    @Test
-    void getOrdersByUserId_ShouldFetchUserOnce_AndReturnOrders() {
-        Order order1 = new Order();
-        order1.setId(1L);
-        order1.setUserId(1L);
-        Order order2 = new Order();
-        order2.setId(2L);
-        order2.setUserId(1L);
-
-        doReturn(sampleUser()).when(userClient).getUserById(1L);
-        doReturn(List.of(order1, order2)).when(orderRepository).findByUserId(1L);
-        doReturn(new OrderResponse()).when(orderMapper).toDto(any(Order.class));
-
-        List<OrderWithUserResponse> result = orderService.getOrdersByUserId(1L);
-
-        assertEquals(2, result.size());
         verify(userClient, times(1)).getUserById(1L);
-        verify(orderRepository, times(1)).findByUserId(1L);
+        verify(orderDao, times(1)).findAll(any(Specification.class), any(Pageable.class));
     }
 
     @Test
     void updateOrder_ShouldUpdateStatusAndItems_WhenExists() {
-        Order existing = new Order();
-        existing.setId(3L);
-        existing.setUserId(1L);
-        existing.setStatus(OrderStatus.CREATED);
+        Order existing = orderWithUser(3L, 1L);
 
         OrderUpdateRequest request = new OrderUpdateRequest();
         request.setStatus(OrderStatus.PAID);
         request.setItems(List.of(itemRequest(10L, 3)));
 
-        doReturn(Optional.of(existing)).when(orderRepository).findById(3L);
-        doReturn(Optional.of(sampleItem(10L, "Book", "10.00"))).when(itemRepository).findById(10L);
-        doReturn(existing).when(orderRepository).save(existing);
+        doReturn(Optional.of(existing)).when(orderDao).findById(3L);
+        doReturn(Optional.of(sampleItem(10L, "Book", "10.00"))).when(itemDao).findById(10L);
+        doReturn(existing).when(orderDao).save(existing);
         doReturn(sampleUser()).when(userClient).getUserById(1L);
-        doReturn(new OrderResponse()).when(orderMapper).toDto(existing);
 
         OrderWithUserResponse result = orderService.updateOrder(3L, request);
 
@@ -233,7 +208,7 @@ class OrderServiceTest {
         assertEquals(OrderStatus.PAID, existing.getStatus());
         assertEquals(0, new BigDecimal("30.00").compareTo(existing.getTotalPrice()));
         assertEquals(1, existing.getOrderItems().size());
-        verify(orderRepository, times(1)).save(existing);
+        verify(orderDao, times(1)).save(existing);
     }
 
     @Test
@@ -242,11 +217,11 @@ class OrderServiceTest {
         request.setStatus(OrderStatus.PAID);
         request.setItems(List.of(itemRequest(10L, 1)));
 
-        doReturn(Optional.empty()).when(orderRepository).findById(404L);
+        doReturn(Optional.empty()).when(orderDao).findById(404L);
 
         assertThrows(ResourceNotFoundException.class,
                 () -> orderService.updateOrder(404L, request));
-        verify(orderRepository, never()).save(any());
+        verify(orderDao, never()).save(any());
     }
 
     @Test
@@ -254,21 +229,21 @@ class OrderServiceTest {
         Order order = new Order();
         order.setId(8L);
         order.setDeleted(false);
-        doReturn(Optional.of(order)).when(orderRepository).findById(8L);
-        doReturn(order).when(orderRepository).save(order);
+        doReturn(Optional.of(order)).when(orderDao).findById(8L);
+        doReturn(order).when(orderDao).save(order);
 
         orderService.deleteOrder(8L);
 
         assertTrue(order.isDeleted());
-        verify(orderRepository, times(1)).save(order);
+        verify(orderDao, times(1)).save(order);
     }
 
     @Test
     void deleteOrder_ShouldThrow_WhenOrderNotFound() {
-        doReturn(Optional.empty()).when(orderRepository).findById(404L);
+        doReturn(Optional.empty()).when(orderDao).findById(404L);
 
         assertThrows(ResourceNotFoundException.class,
                 () -> orderService.deleteOrder(404L));
-        verify(orderRepository, never()).save(any());
+        verify(orderDao, never()).save(any());
     }
 }

@@ -9,9 +9,6 @@ import lombok.Setter;
 import java.io.Serializable;
 import java.time.LocalDate;
 
-/**
- * Representation of a user fetched from the external User Service.
- */
 @Getter
 @Setter
 @NoArgsConstructor

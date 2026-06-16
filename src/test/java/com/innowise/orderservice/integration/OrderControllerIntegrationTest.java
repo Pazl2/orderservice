@@ -8,6 +8,8 @@ import com.innowise.orderservice.entity.Item;
 import com.innowise.orderservice.entity.OrderStatus;
 import com.innowise.orderservice.integration.config.BaseIntegrationTest;
 import com.innowise.orderservice.repository.ItemRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +35,9 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @BeforeEach
     void cleanUp() {
@@ -187,7 +192,7 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    void shouldGetOrdersByUserId() {
+    void shouldGetOrdersFilteredByUserId() throws Exception {
         Item item = createItem("Book", "10.00");
         stubUserByEmail("ivan@example.com", 1L);
         stubUserById(1L, "ivan@example.com");
@@ -196,11 +201,59 @@ class OrderControllerIntegrationTest extends BaseIntegrationTest {
                 new HttpEntity<>(sampleCreateRequest("ivan@example.com", item.getId(), 1)),
                 OrderWithUserResponse.class);
 
-        ResponseEntity<OrderWithUserResponse[]> response = restTemplate.exchange(
-                "/orders/user/1", HttpMethod.GET, null, OrderWithUserResponse[].class);
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/orders?userId=1", HttpMethod.GET, null, String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).hasSize(1);
-        assertThat(response.getBody()[0].getUser().getId()).isEqualTo(1L);
+        JsonNode body = objectMapper.readTree(response.getBody());
+        assertThat(body.get("content")).hasSize(1);
+        assertThat(body.get("totalElements").asInt()).isEqualTo(1);
+        assertThat(body.get("content").get(0).get("user").get("id").asLong()).isEqualTo(1L);
+    }
+
+    @Test
+    void shouldReturnPagedOrdersFilteredByStatus() throws Exception {
+        Item item = createItem("Book", "10.00");
+        stubUserByEmail("ivan@example.com", 1L);
+        stubUserById(1L, "ivan@example.com");
+
+        restTemplate.exchange("/orders", HttpMethod.POST,
+                new HttpEntity<>(sampleCreateRequest("ivan@example.com", item.getId(), 1)),
+                OrderWithUserResponse.class);
+        restTemplate.exchange("/orders", HttpMethod.POST,
+                new HttpEntity<>(sampleCreateRequest("ivan@example.com", item.getId(), 2)),
+                OrderWithUserResponse.class);
+
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/orders?statuses=CREATED&page=0&size=1", HttpMethod.GET, null, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        JsonNode body = objectMapper.readTree(response.getBody());
+        assertThat(body.get("content")).hasSize(1);
+        assertThat(body.get("totalElements").asInt()).isEqualTo(2);
+        assertThat(body.get("totalPages").asInt()).isEqualTo(2);
+
+        ResponseEntity<String> noneResponse = restTemplate.exchange(
+                "/orders?statuses=DELIVERED", HttpMethod.GET, null, String.class);
+        JsonNode noneBody = objectMapper.readTree(noneResponse.getBody());
+        assertThat(noneBody.get("totalElements").asInt()).isZero();
+    }
+
+    @Test
+    void shouldReturnEmptyWhenDateRangeExcludesOrders() throws Exception {
+        Item item = createItem("Book", "10.00");
+        stubUserByEmail("ivan@example.com", 1L);
+        stubUserById(1L, "ivan@example.com");
+
+        restTemplate.exchange("/orders", HttpMethod.POST,
+                new HttpEntity<>(sampleCreateRequest("ivan@example.com", item.getId(), 1)),
+                OrderWithUserResponse.class);
+
+        ResponseEntity<String> response = restTemplate.exchange(
+                "/orders?createdFrom=2999-01-01T00:00:00", HttpMethod.GET, null, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        JsonNode body = objectMapper.readTree(response.getBody());
+        assertThat(body.get("totalElements").asInt()).isZero();
     }
 }

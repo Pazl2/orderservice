@@ -1,8 +1,7 @@
 package com.innowise.orderservice.integration.config;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
-import com.innowise.orderservice.OrderserviceApplication;
-import jakarta.annotation.PostConstruct;
+import com.innowise.orderservice.OrderServiceApplication;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,12 +16,14 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import jakarta.annotation.PostConstruct;
+
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 
 @Testcontainers
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        classes = OrderserviceApplication.class
+        classes = OrderServiceApplication.class
 )
 @ActiveProfiles("test")
 @Import(TestcontainersConfig.class)

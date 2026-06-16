@@ -7,10 +7,6 @@ import lombok.Setter;
 
 import java.io.Serializable;
 
-/**
- * Wrapper returned by all endpoints except delete: contains the order data
- * together with the user info fetched from the User Service.
- */
 @Getter
 @Setter
 @NoArgsConstructor
