@@ -113,6 +113,22 @@ public class OrderService {
         orderDao.save(order);
     }
 
+    @Transactional
+    public void applyPaymentStatus(Long orderId, String paymentStatus) {
+        Order order = getOrderEntityById(orderId);
+
+        OrderStatus newStatus = "SUCCESS".equals(paymentStatus)
+                ? OrderStatus.PAID
+                : OrderStatus.CANCELLED;
+
+        if (order.getStatus() == newStatus) {
+            return;
+        }
+
+        order.setStatus(newStatus);
+        orderDao.save(order);
+    }
+
     private Map<Long, UserDto> resolveUsers(List<Order> orders) {
         Map<Long, UserDto> usersById = new HashMap<>();
         for (Order order : orders) {
