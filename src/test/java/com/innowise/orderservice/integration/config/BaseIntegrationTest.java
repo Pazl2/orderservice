@@ -2,6 +2,7 @@ package com.innowise.orderservice.integration.config;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.innowise.orderservice.OrderServiceApplication;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +35,9 @@ public abstract class BaseIntegrationTest {
     @Autowired
     protected TestRestTemplate restTemplate;
 
+    @Autowired
+    private CircuitBreakerRegistry circuitBreakerRegistry;
+
     @BeforeAll
     static void startWireMock() {
         if (wireMockServer == null) {
@@ -64,6 +68,11 @@ public abstract class BaseIntegrationTest {
     @BeforeEach
     void resetWireMock() {
         wireMockServer.resetAll();
+    }
+
+    @BeforeEach
+    void resetCircuitBreaker() {
+        circuitBreakerRegistry.circuitBreaker("userService").transitionToClosedState();
     }
 
     @PostConstruct
