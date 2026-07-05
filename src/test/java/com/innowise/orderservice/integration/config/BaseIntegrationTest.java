@@ -3,7 +3,6 @@ package com.innowise.orderservice.integration.config;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.innowise.orderservice.OrderServiceApplication;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,13 +45,6 @@ public abstract class BaseIntegrationTest {
         }
     }
 
-    @AfterAll
-    static void stopWireMock() {
-        if (wireMockServer != null) {
-            wireMockServer.stop();
-            wireMockServer = null;
-        }
-    }
 
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {
