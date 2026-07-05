@@ -62,6 +62,58 @@ class OrderServiceTest {
 
     private OrderService orderService;
 
+    @Test
+    void applyPaymentStatus_success_setsOrderStatusToPaid() {
+        Order order = new Order();
+        order.setId(105L);
+        order.setStatus(OrderStatus.CREATED);
+
+        doReturn(Optional.of(order)).when(orderDao).findById(105L);
+
+        orderService.applyPaymentStatus(105L, "SUCCESS");
+
+        assertEquals(OrderStatus.PAID, order.getStatus());
+        verify(orderDao, times(1)).save(order);
+    }
+
+    @Test
+    void applyPaymentStatus_failed_setsOrderStatusToCancelled() {
+        Order order = new Order();
+        order.setId(106L);
+        order.setStatus(OrderStatus.CREATED);
+
+        doReturn(Optional.of(order)).when(orderDao).findById(106L);
+
+        orderService.applyPaymentStatus(106L, "FAILED");
+
+        assertEquals(OrderStatus.CANCELLED, order.getStatus());
+        verify(orderDao, times(1)).save(order);
+    }
+
+    @Test
+    void applyPaymentStatus_alreadyApplied_isIdempotent_doesNotSaveAgain() {
+        Order order = new Order();
+        order.setId(107L);
+        order.setStatus(OrderStatus.PAID);
+
+        doReturn(Optional.of(order)).when(orderDao).findById(107L);
+
+        orderService.applyPaymentStatus(107L, "SUCCESS");
+
+        verify(orderDao, never()).save(any());
+    }
+
+    @Test
+    void applyPaymentStatus_orderNotFound_throwsResourceNotFoundException() {
+        doReturn(Optional.empty()).when(orderDao).findById(999L);
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> orderService.applyPaymentStatus(999L, "SUCCESS"));
+
+        verify(orderDao, never()).save(any());
+    }
+
+
     @BeforeEach
     void setUp() {
         orderService = new OrderService(orderDao, itemDao, orderMapper, orderItemMapper, userClient);
