@@ -60,10 +60,6 @@ public abstract class BaseIntegrationTest {
     @BeforeEach
     void resetWireMock() {
         wireMockServer.resetAll();
-    }
-
-    @BeforeEach
-    void resetCircuitBreaker() {
         circuitBreakerRegistry.circuitBreaker("userService").transitionToClosedState();
     }
 

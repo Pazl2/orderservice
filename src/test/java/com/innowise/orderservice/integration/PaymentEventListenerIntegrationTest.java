@@ -14,8 +14,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 
 import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class PaymentEventListenerIntegrationTest extends BaseIntegrationTest {
 
@@ -80,7 +79,7 @@ class PaymentEventListenerIntegrationTest extends BaseIntegrationTest {
                 .pollInterval(Duration.ofMillis(200))
                 .untilAsserted(() -> {
                     Order updated = orderRepository.findById(order.getId()).orElseThrow();
-                    assertTrue(updated.getStatus() == OrderStatus.PAID);
+                    assertSame(OrderStatus.PAID, updated.getStatus());
                 });
     }
 }
