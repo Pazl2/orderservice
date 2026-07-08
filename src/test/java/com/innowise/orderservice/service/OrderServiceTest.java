@@ -1,8 +1,6 @@
 package com.innowise.orderservice.service;
 
 import com.innowise.orderservice.client.UserClient;
-import com.innowise.orderservice.dao.ItemDao;
-import com.innowise.orderservice.dao.OrderDao;
 import com.innowise.orderservice.dto.OrderCreateRequest;
 import com.innowise.orderservice.dto.OrderItemRequest;
 import com.innowise.orderservice.dto.OrderUpdateRequest;
@@ -16,6 +14,8 @@ import com.innowise.orderservice.mapper.OrderItemMapper;
 import com.innowise.orderservice.mapper.OrderItemMapperImpl;
 import com.innowise.orderservice.mapper.OrderMapper;
 import com.innowise.orderservice.mapper.OrderMapperImpl;
+import com.innowise.orderservice.repository.ItemRepository;
+import com.innowise.orderservice.repository.OrderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -49,10 +49,10 @@ import static org.mockito.Mockito.verify;
 class OrderServiceTest {
 
     @Mock
-    private OrderDao orderDao;
+    private OrderRepository orderRepository;
 
     @Mock
-    private ItemDao itemDao;
+    private ItemRepository itemRepository;
 
     @Mock
     private UserClient userClient;
@@ -68,12 +68,12 @@ class OrderServiceTest {
         order.setId(105L);
         order.setStatus(OrderStatus.CREATED);
 
-        doReturn(Optional.of(order)).when(orderDao).findById(105L);
+        doReturn(Optional.of(order)).when(orderRepository).findById(105L);
 
         orderService.applyPaymentStatus(105L, "SUCCESS");
 
         assertEquals(OrderStatus.PAID, order.getStatus());
-        verify(orderDao, times(1)).save(order);
+        verify(orderRepository, times(1)).save(order);
     }
 
     @Test
@@ -82,12 +82,12 @@ class OrderServiceTest {
         order.setId(106L);
         order.setStatus(OrderStatus.CREATED);
 
-        doReturn(Optional.of(order)).when(orderDao).findById(106L);
+        doReturn(Optional.of(order)).when(orderRepository).findById(106L);
 
         orderService.applyPaymentStatus(106L, "FAILED");
 
         assertEquals(OrderStatus.CANCELLED, order.getStatus());
-        verify(orderDao, times(1)).save(order);
+        verify(orderRepository, times(1)).save(order);
     }
 
     @Test
@@ -96,27 +96,27 @@ class OrderServiceTest {
         order.setId(107L);
         order.setStatus(OrderStatus.PAID);
 
-        doReturn(Optional.of(order)).when(orderDao).findById(107L);
+        doReturn(Optional.of(order)).when(orderRepository).findById(107L);
 
         orderService.applyPaymentStatus(107L, "SUCCESS");
 
-        verify(orderDao, never()).save(any());
+        verify(orderRepository, never()).save(any());
     }
 
     @Test
     void applyPaymentStatus_orderNotFound_throwsResourceNotFoundException() {
-        doReturn(Optional.empty()).when(orderDao).findById(999L);
+        doReturn(Optional.empty()).when(orderRepository).findById(999L);
 
         assertThrows(ResourceNotFoundException.class,
                 () -> orderService.applyPaymentStatus(999L, "SUCCESS"));
 
-        verify(orderDao, never()).save(any());
+        verify(orderRepository, never()).save(any());
     }
 
 
     @BeforeEach
     void setUp() {
-        orderService = new OrderService(orderDao, itemDao, orderMapper, orderItemMapper, userClient);
+        orderService = new OrderService(orderRepository, itemRepository, orderMapper, orderItemMapper, userClient);
     }
 
     private UserDto sampleUser() {
@@ -159,11 +159,11 @@ class OrderServiceTest {
 
         UserDto user = sampleUser();
         doReturn(user).when(userClient).getUserByEmail("ivan@example.com");
-        doReturn(Optional.of(sampleItem(10L, "Book", "15.00"))).when(itemDao).findById(10L);
-        doReturn(Optional.of(sampleItem(20L, "Pen", "5.50"))).when(itemDao).findById(20L);
+        doReturn(Optional.of(sampleItem(10L, "Book", "15.00"))).when(itemRepository).findById(10L);
+        doReturn(Optional.of(sampleItem(20L, "Pen", "5.50"))).when(itemRepository).findById(20L);
 
         Order savedOrder = orderWithUser(100L, 1L);
-        doReturn(savedOrder).when(orderDao).save(any(Order.class));
+        doReturn(savedOrder).when(orderRepository).save(any(Order.class));
 
         OrderWithUserResponse result = orderService.createOrder(request);
 
@@ -172,7 +172,7 @@ class OrderServiceTest {
         assertEquals("ivan@example.com", result.getUser().getEmail());
 
         ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
-        verify(orderDao).save(orderCaptor.capture());
+        verify(orderRepository).save(orderCaptor.capture());
         Order toSave = orderCaptor.getValue();
         assertEquals(0, new BigDecimal("35.50").compareTo(toSave.getTotalPrice()));
         assertEquals(1L, toSave.getUserId());
@@ -190,18 +190,18 @@ class OrderServiceTest {
         request.setItems(List.of(itemRequest(99L, 1)));
 
         doReturn(sampleUser()).when(userClient).getUserByEmail("ivan@example.com");
-        doReturn(Optional.empty()).when(itemDao).findById(99L);
+        doReturn(Optional.empty()).when(itemRepository).findById(99L);
 
         ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
                 () -> orderService.createOrder(request));
         assertTrue(ex.getMessage().contains("99"));
-        verify(orderDao, never()).save(any());
+        verify(orderRepository, never()).save(any());
     }
 
     @Test
     void getOrderById_ShouldReturnOrderWithUser_WhenExists() {
         Order order = orderWithUser(5L, 1L);
-        doReturn(Optional.of(order)).when(orderDao).findById(5L);
+        doReturn(Optional.of(order)).when(orderRepository).findById(5L);
         doReturn(sampleUser()).when(userClient).getUserById(1L);
 
         OrderWithUserResponse result = orderService.getOrderById(5L);
@@ -214,7 +214,7 @@ class OrderServiceTest {
 
     @Test
     void getOrderById_ShouldThrow_WhenOrderNotFound() {
-        doReturn(Optional.empty()).when(orderDao).findById(404L);
+        doReturn(Optional.empty()).when(orderRepository).findById(404L);
 
         ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
                 () -> orderService.getOrderById(404L));
@@ -228,7 +228,7 @@ class OrderServiceTest {
         Order order2 = orderWithUser(8L, 1L);
         Page<Order> page = new PageImpl<>(List.of(order1, order2), PageRequest.of(0, 10), 2);
 
-        doReturn(page).when(orderDao).findAll(any(Specification.class), any(Pageable.class));
+        doReturn(page).when(orderRepository).findAll(any(Specification.class), any(Pageable.class));
         doReturn(sampleUser()).when(userClient).getUserById(1L);
 
         Page<OrderWithUserResponse> result = orderService.getOrders(
@@ -239,7 +239,7 @@ class OrderServiceTest {
         assertEquals(7L, result.getContent().get(0).getOrder().getId());
         assertEquals(1L, result.getContent().get(0).getUser().getId());
         verify(userClient, times(1)).getUserById(1L);
-        verify(orderDao, times(1)).findAll(any(Specification.class), any(Pageable.class));
+        verify(orderRepository, times(1)).findAll(any(Specification.class), any(Pageable.class));
     }
 
     @Test
@@ -250,9 +250,9 @@ class OrderServiceTest {
         request.setStatus(OrderStatus.PAID);
         request.setItems(List.of(itemRequest(10L, 3)));
 
-        doReturn(Optional.of(existing)).when(orderDao).findById(3L);
-        doReturn(Optional.of(sampleItem(10L, "Book", "10.00"))).when(itemDao).findById(10L);
-        doReturn(existing).when(orderDao).save(existing);
+        doReturn(Optional.of(existing)).when(orderRepository).findById(3L);
+        doReturn(Optional.of(sampleItem(10L, "Book", "10.00"))).when(itemRepository).findById(10L);
+        doReturn(existing).when(orderRepository).save(existing);
         doReturn(sampleUser()).when(userClient).getUserById(1L);
 
         OrderWithUserResponse result = orderService.updateOrder(3L, request);
@@ -261,7 +261,7 @@ class OrderServiceTest {
         assertEquals(OrderStatus.PAID, existing.getStatus());
         assertEquals(0, new BigDecimal("30.00").compareTo(existing.getTotalPrice()));
         assertEquals(1, existing.getOrderItems().size());
-        verify(orderDao, times(1)).save(existing);
+        verify(orderRepository, times(1)).save(existing);
     }
 
     @Test
@@ -270,11 +270,11 @@ class OrderServiceTest {
         request.setStatus(OrderStatus.PAID);
         request.setItems(List.of(itemRequest(10L, 1)));
 
-        doReturn(Optional.empty()).when(orderDao).findById(404L);
+        doReturn(Optional.empty()).when(orderRepository).findById(404L);
 
         assertThrows(ResourceNotFoundException.class,
                 () -> orderService.updateOrder(404L, request));
-        verify(orderDao, never()).save(any());
+        verify(orderRepository, never()).save(any());
     }
 
     @Test
@@ -282,21 +282,21 @@ class OrderServiceTest {
         Order order = new Order();
         order.setId(8L);
         order.setDeleted(false);
-        doReturn(Optional.of(order)).when(orderDao).findById(8L);
-        doReturn(order).when(orderDao).save(order);
+        doReturn(Optional.of(order)).when(orderRepository).findById(8L);
+        doReturn(order).when(orderRepository).save(order);
 
         orderService.deleteOrder(8L);
 
         assertTrue(order.isDeleted());
-        verify(orderDao, times(1)).save(order);
+        verify(orderRepository, times(1)).save(order);
     }
 
     @Test
     void deleteOrder_ShouldThrow_WhenOrderNotFound() {
-        doReturn(Optional.empty()).when(orderDao).findById(404L);
+        doReturn(Optional.empty()).when(orderRepository).findById(404L);
 
         assertThrows(ResourceNotFoundException.class,
                 () -> orderService.deleteOrder(404L));
-        verify(orderDao, never()).save(any());
+        verify(orderRepository, never()).save(any());
     }
 }

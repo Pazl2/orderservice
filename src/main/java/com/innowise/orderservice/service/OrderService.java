@@ -1,8 +1,6 @@
 package com.innowise.orderservice.service;
 
 import com.innowise.orderservice.client.UserClient;
-import com.innowise.orderservice.dao.ItemDao;
-import com.innowise.orderservice.dao.OrderDao;
 import com.innowise.orderservice.dto.OrderCreateRequest;
 import com.innowise.orderservice.dto.OrderItemRequest;
 import com.innowise.orderservice.dto.OrderResponse;
@@ -16,6 +14,8 @@ import com.innowise.orderservice.entity.OrderStatus;
 import com.innowise.orderservice.exception.ResourceNotFoundException;
 import com.innowise.orderservice.mapper.OrderItemMapper;
 import com.innowise.orderservice.mapper.OrderMapper;
+import com.innowise.orderservice.repository.ItemRepository;
+import com.innowise.orderservice.repository.OrderRepository;
 import com.innowise.orderservice.specification.OrderSpecification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -33,19 +33,19 @@ import java.util.Map;
 @Service
 public class OrderService {
 
-    private final OrderDao orderDao;
-    private final ItemDao itemDao;
+    private final OrderRepository orderRepository;
+    private final ItemRepository itemRepository;
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
     private final UserClient userClient;
 
-    public OrderService(OrderDao orderDao,
-                        ItemDao itemDao,
+    public OrderService(OrderRepository orderRepository,
+                        ItemRepository itemRepository,
                         OrderMapper orderMapper,
                         OrderItemMapper orderItemMapper,
                         UserClient userClient) {
-        this.orderDao = orderDao;
-        this.itemDao = itemDao;
+        this.orderRepository = orderRepository;
+        this.itemRepository = itemRepository;
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
         this.userClient = userClient;
@@ -61,7 +61,7 @@ public class OrderService {
         BigDecimal totalPrice = buildOrderItems(order, dto.getItems());
         order.setTotalPrice(totalPrice);
 
-        Order saved = orderDao.save(order);
+        Order saved = orderRepository.save(order);
         return wrap(saved, user);
     }
 
@@ -86,7 +86,7 @@ public class OrderService {
                         OrderSpecification.hasUserId(userId));
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<Order> orders = orderDao.findAll(spec, pageable);
+        Page<Order> orders = orderRepository.findAll(spec, pageable);
 
         Map<Long, UserDto> usersById = resolveUsers(orders.getContent());
         return orders.map(order -> wrap(order, usersById.get(order.getUserId())));
@@ -101,7 +101,7 @@ public class OrderService {
         BigDecimal totalPrice = buildOrderItems(order, dto.getItems());
         order.setTotalPrice(totalPrice);
 
-        Order saved = orderDao.save(order);
+        Order saved = orderRepository.save(order);
         UserDto user = userClient.getUserById(saved.getUserId());
         return wrap(saved, user);
     }
@@ -110,7 +110,7 @@ public class OrderService {
     public void deleteOrder(Long id) {
         Order order = getOrderEntityById(id);
         order.setDeleted(true);
-        orderDao.save(order);
+        orderRepository.save(order);
     }
 
     @Transactional
@@ -126,7 +126,7 @@ public class OrderService {
         }
 
         order.setStatus(newStatus);
-        orderDao.save(order);
+        orderRepository.save(order);
     }
 
     private Map<Long, UserDto> resolveUsers(List<Order> orders) {
@@ -140,7 +140,7 @@ public class OrderService {
     private BigDecimal buildOrderItems(Order order, List<OrderItemRequest> itemRequests) {
         BigDecimal total = BigDecimal.ZERO;
         for (OrderItemRequest itemRequest : itemRequests) {
-            Item item = itemDao.findById(itemRequest.getItemId())
+            Item item = itemRepository.findById(itemRequest.getItemId())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "No such item with " + itemRequest.getItemId() + " id"));
 
@@ -155,7 +155,7 @@ public class OrderService {
     }
 
     private Order getOrderEntityById(Long id) {
-        return orderDao.findById(id)
+        return orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("No such order with " + id + " id"));
     }
 
