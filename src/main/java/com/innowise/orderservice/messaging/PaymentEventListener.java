@@ -57,7 +57,7 @@ public class PaymentEventListener {
 
     @DltHandler
     public void onPaymentCompletedDlt(PaymentCompletedEvent event,
-                                      ConsumerRecord<String, PaymentCompletedEvent> record,
+                                      ConsumerRecord<String, PaymentCompletedEvent> consumerRecord,
                                       @Header(KafkaHeaders.EXCEPTION_MESSAGE) String exceptionMessage,
                                       @Header(RetryTopicHeaders.DEFAULT_HEADER_ATTEMPTS) int attempts) {
         dltCounter.increment();
