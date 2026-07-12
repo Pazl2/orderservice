@@ -1,0 +1,15 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  liquibase:
+    enabled: true
+
+user:
+  service:
+    url: ${USER_SERVICE_URL:http://localhost:8080}
+
+logging:
+  level:
+    org.testcontainers: INFO
